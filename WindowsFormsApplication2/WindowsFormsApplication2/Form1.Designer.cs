@@ -79,7 +79,9 @@
             // 
             // sp
             // 
-            this.sp.RtsEnable = true;
+            this.sp.DtrEnable = true;
+            this.sp.Handshake = System.IO.Ports.Handshake.RequestToSend;
+            this.sp.PortName = "COM15";
             this.sp.DataReceived += new System.IO.Ports.SerialDataReceivedEventHandler(this.sp_DataReceived);
             // 
             // textBox1
@@ -97,7 +99,7 @@
             this.panel1.Controls.Add(this.radioButton1);
             this.panel1.Location = new System.Drawing.Point(316, 13);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(200, 49);
+            this.panel1.Size = new System.Drawing.Size(200, 193);
             this.panel1.TabIndex = 5;
             // 
             // radioButton1
@@ -123,6 +125,7 @@
             this.Controls.Add(this.ButtonOpenSerial);
             this.Name = "Form1";
             this.Text = "Serial Port Reader";
+            this.Load += new System.EventHandler(this.Form1_Load);
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();
             this.panel1.ResumeLayout(false);

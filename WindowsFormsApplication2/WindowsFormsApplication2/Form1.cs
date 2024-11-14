@@ -8,6 +8,9 @@ using System.Text;
 using System.Windows.Forms;
 using System.IO;
 using System.IO.Ports;
+using System.Threading;
+using System.Drawing.Text;
+using System.Diagnostics;
 
 namespace WindowsFormsApplication2
 {
@@ -17,15 +20,27 @@ namespace WindowsFormsApplication2
         delegate void Invoker(string parameter);
         delegate void Invoker2(int param1, int param2);
 
+        System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+
         public Form1()
         {
             InitializeComponent();
             ButtonCloseSerial.Enabled = false;
-            statusLabel.Text = ""; 
-            
+            statusLabel.Text = "";
+
+            timer.Interval = 10;
+            timer.Tick += new EventHandler(timer_Tick);
         }
 
-        public void openSerial()
+        void timer_Tick(object sender, EventArgs e)
+        {
+            if (sp.IsOpen)
+            {
+                //sp.Write(" ");
+            }
+        }
+
+            public void openSerial()
         {
 
             if (!(sp.IsOpen))
@@ -39,6 +54,17 @@ namespace WindowsFormsApplication2
                     statusLabel.Text = "Port open.";
                     ButtonCloseSerial.Enabled = sp.IsOpen;
                     ButtonOpenSerial.Enabled = !sp.IsOpen;
+
+
+                    sp.Write("\rvz\r"); // reset the spacemouse
+                    Thread.Sleep(1000);
+                    sp.Write("kQ\r"); // enable button press events
+                    Thread.Sleep(1000);
+                    sp.Write("m3\r"); // set mode 3 (continous reporting enable)
+                    Thread.Sleep(1000);
+                    sp.Write("z\r"); // zero
+
+                    //timer.Start();
                 }
                 catch (UnauthorizedAccessException ex)
                 {
@@ -55,6 +81,8 @@ namespace WindowsFormsApplication2
                 // The COM port exists.
                 if (sp.IsOpen)
                 {
+                    timer.Stop();
+
                     statusLabel.Text = "Closing port...";
                     // Wait for the transmit buffer to empty.
                     while (sp.BytesToWrite > 0)
@@ -81,7 +109,6 @@ namespace WindowsFormsApplication2
 
         private void sp_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-
             string data = sp.ReadExisting();
             if (this.InvokeRequired)
             {
@@ -102,13 +129,60 @@ namespace WindowsFormsApplication2
         }
         int iUpdate = 0;
         string text = "", text1 = "", text2 = "", text3 = "", text4 = "", text5 = "", text6 = "";
-        int x=0, y=0, z=0, u=0, v=0, w=0;
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            setText("dH000H000H000H000H000H000");
+        }
+
+        int x =0, y=0, z=0, u=0, v=0, w=0;
+
+
+        string buffer = "";
+        int expectedBytes = 0;
+
         private void setText(string sIn)
         {
-            
-            
-            
+            try
+            {
+                Debug.WriteLine(sIn);
 
+               if (sIn[0] == 'k')
+               {
+                    // expect 1+3 bytes for button press message
+                    expectedBytes = 4;
+               }
+
+               else if (sIn[0] == 'd')
+                {
+                    // expect 1+24 bytes for data message
+                    expectedBytes = 25;
+                }
+               else if (expectedBytes == 0)
+                {
+                    // unknown and not part of a started message
+                    return;
+                }
+
+                buffer += sIn;
+                expectedBytes -= sIn.Length;
+
+                if (expectedBytes > 0)
+                {
+                    return;
+                }
+
+
+                setText1(buffer);
+                buffer = "";
+                expectedBytes = 0;
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        private void setText1(string sIn) {
             if (sIn[0].Equals('k'))
             {
                 this.textBox1.Text = "Button Pressed: " + ToBinary((DecodeSpacemouse(sIn[1]) + DecodeSpacemouse(sIn[2]) * 16 + DecodeSpacemouse(sIn[3]) * 256));
@@ -157,23 +231,33 @@ namespace WindowsFormsApplication2
                     y = -(4096 - temp);
                 }
                 text3 = "Y: " + y;
-             
-            }                
-            if (sIn.Length == 12)
-            {
-                iUpdate++;
-                int temp = 0;
-                int n = 0;
+
+                //}                
+                //if (sIn.Length == 12)
+                // {
+                //iUpdate++;
+                //int temp = 0;
+                //int n = 0;
+                n = 21;
                 temp = (DecodeSpacemouse(sIn[n]) * 256 + DecodeSpacemouse(sIn[n + 1]) * 16 + DecodeSpacemouse(sIn[n + 2]));
-                if (temp > 1000)
+                //if (temp > 1000)
+                //{
+                //    u = -(4096 - temp);
+                //}
+                //else u = temp;
+                if (sIn[n].Equals('G'))
+                {
+                    u = temp;
+                }
+                else if (sIn[n].Equals('H'))
                 {
                     u = -(4096 - temp);
                 }
-                else u = temp;
+
                 text4 = "u: " + u;
                 //}
 
-                n = 3;
+                n = 13;
 
                 temp = (4096 - (DecodeSpacemouse(sIn[n + 1]) * 256 + DecodeSpacemouse(sIn[n + 2]) * 16 + DecodeSpacemouse(sIn[n + 3]) * 1));
                 if (sIn[n].Equals('G'))
@@ -187,7 +271,7 @@ namespace WindowsFormsApplication2
                 text5 = "w: " + w;
 
 
-                n = 7;
+                n = 17;
                 temp = (4096 - (DecodeSpacemouse(sIn[n + 1]) * 256 + DecodeSpacemouse(sIn[n + 2]) * 16 + DecodeSpacemouse(sIn[n + 3]) * 1));
                 if (sIn[n].Equals('G'))
                 {
@@ -199,7 +283,7 @@ namespace WindowsFormsApplication2
                 }
                 text6 = "v: " + v;
             }
-            if (iUpdate == 2)
+            //if (iUpdate == 2)
             {
                 this.textBox1.Text = text1 + "\r\n" + text3 + "\r\n" + text2 + "\r\n\r\n" + text4 + "\r\n" + text6 + "\r\n" + text5;
                 iUpdate = 0;
