@@ -1,5 +1,11 @@
 import serial
+import threading
+
 from time import sleep
+
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
 
 class SpaceMouse:
     def __init__(self, port: str):
@@ -15,6 +21,8 @@ class SpaceMouse:
         self.__rx_buffer = ""
 
         self.hardware_version = "unknown"
+        self.position = (0, 0, 0) # x, y, z
+        self.angle = (0, 0, 0) # u, v, w
     
     def initialize(self):
         """intialize the hardware to the expected modes"""
@@ -185,6 +193,9 @@ class SpaceMouse:
         v = normalize(v)
         w = normalize(w)
 
+        self.position = (x, y, z)
+        self.angle = (u, v, w)
+
         print(f"Position: x={x:5.2f}, y={y:5.2f}, z={z:5.2f} | Angles: u={u:5.2f}, v={v:5.2f}, w={w:5.2f}")
 
 
@@ -239,8 +250,50 @@ class SpaceMouse:
 
 if __name__ == "__main__":
     sm = SpaceMouse("COM4")
-    sm.initialize()
-       
-    while True:
-        sm.read_pending()
-        sleep(0.1) # don't hog the CPU
+
+    def sm_thread():
+        global sm
+
+        sm.initialize()
+
+        while True:
+            sm.read_pending()
+            sleep(0.1) # don't hog the CPU
+
+    sm_thread = threading.Thread(target=sm_thread, daemon=True)
+    sm_thread.start()
+
+    # create figure
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+
+    x, y, z = sm.position
+    u, v, w = sm.angle
+
+    position_plot, = ax.plot([x], [y], [z], 'bo', markersize=8)
+    orientation_quiver = ax.quiver(x, y, z, u, v, w, color='red', length=0.5, normalize=True, arrow_length_ratio=0.1)
+
+    ax.set_xlim([-1, 1])
+    ax.set_ylim([-1, 1])
+    ax.set_zlim([-1, 1])
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.legend(loc="upper right")
+
+    def update(frame):
+        global sm, orientation_quiver
+
+        x, y, z = sm.position
+        u, v, w = sm.angle
+
+        position_plot.set_data([x], [y])
+        position_plot.set_3d_properties([z])
+
+        orientation_quiver.remove()
+        orientation_quiver = ax.quiver(x, y, z, u, v, w, color='red', length=0.5, normalize=True)
+
+        return position_plot, orientation_quiver
+
+    ani = FuncAnimation(fig, update, frames=None, interval=100, blit=False)
+    plt.show()
