@@ -152,7 +152,7 @@ class SpaceMouse:
     def __on_key_message(self, payload: str):
         """process a key message. payload is 3 chars"""
         assert len(payload) == 3
-        print(f"raw key message: {payload}")
+        #print(f"raw key message: {payload}")
 
         k0 = self.__decode_nibble(payload[0])
         k1 = self.__decode_nibble(payload[1])
@@ -165,7 +165,7 @@ class SpaceMouse:
     def __on_pos_message(self, payload: str):
         """process a position message. payload is 24 chars"""
         assert len(payload) == 24
-        print(f"raw pos message: {payload}")
+        #print(f"raw pos message: {payload}")
 
         x = self.__decode_signed_word(payload[0:4])
         y = self.__decode_signed_word(payload[8:12])
@@ -174,7 +174,18 @@ class SpaceMouse:
         v = self.__decode_signed_word(payload[12:16]) # theta Y
         w = self.__decode_signed_word(payload[16:20]) # theta Z
 
-        print(f"Position: x={x}, y={y}, z={z} | Angles: u={u}, v={v}, w={w}")
+        def normalize(v: int) -> float:
+            """normalize signed 2-byte integer to [-1, 1]"""
+            return v / 65535.0
+
+        x = normalize(x)
+        y = normalize(y)
+        z = normalize(z)
+        u = normalize(u)
+        v = normalize(v)
+        w = normalize(w)
+
+        print(f"Position: x={x:5.2f}, y={y:5.2f}, z={z:5.2f} | Angles: u={u:5.2f}, v={v:5.2f}, w={w:5.2f}")
 
 
     def __on_version_message(self, payload: str):
@@ -182,6 +193,7 @@ class SpaceMouse:
         payload = payload.strip()
         print(f"Got Version: {payload}")
         self.hardware_version = payload
+
 
     def __decode_signed_word(self, chars: str):
         """decode a 4-character word into a signed number (as used in position and angle)"""
@@ -228,8 +240,6 @@ class SpaceMouse:
 if __name__ == "__main__":
     sm = SpaceMouse("COM4")
     sm.initialize()
-
-    sm.send("b\r") # beep after init
        
     while True:
         sm.read_pending()
